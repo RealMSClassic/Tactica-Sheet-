@@ -1,10 +1,9 @@
 # back/api_auth.py
+print(">>> API_AUTH VERSION: CLEAN-PROD <<<")
 
-print(">>>>>>>>>>> API_AUTH_VERSION: 5-FINAL-OK <<<<<<<<<<<")
 import os
 import time
 import flet as ft
-from dotenv import load_dotenv
 from flet.auth.providers import GoogleOAuthProvider
 from google.oauth2 import id_token
 from google.auth.transport import requests as greq
@@ -23,40 +22,30 @@ class GoogleAuthHandler:
         self.on_success = on_success
         self.on_error = on_error
 
-        # Cargar .env solo en local
-        load_dotenv()
-
         client_id = os.getenv("GOOGLE_CLIENT_ID")
         client_secret = os.getenv("GOOGLE_CLIENT_SECRET")
 
         if not client_id or not client_secret:
-            raise RuntimeError("GOOGLE_CLIENT_ID y GOOGLE_CLIENT_SECRET no están definidos.")
+            raise RuntimeError("GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET faltan.")
 
-        # PRIORIDAD 1: redirect explícito (si existe)
-        redirect_uri_env = os.getenv("GOOGLE_REDIRECT_URI")
+        # 1) GOOGLE_REDIRECT_URI tiene prioridad total
+        redirect_uri = os.getenv("GOOGLE_REDIRECT_URI")
 
-        # PRIORIDAD 2: APP_ORIGIN
-        app_origin_env = os.getenv("APP_ORIGIN", "").strip().rstrip("/")
+        # 2) Si no existe, usar APP_ORIGIN
+        if not redirect_uri:
+            app_origin = os.getenv("APP_ORIGIN", "").strip().rstrip("/")
+            if not app_origin:
+                # solo en local
+                app_origin = "http://127.0.0.1:8560"
 
-        if redirect_uri_env:
-            redirect_url = redirect_uri_env
+            redirect_uri = f"{app_origin}/oauth_callback"
 
-        else:
-            # si app_origin no está definido → local
-            if app_origin_env:
-                origin = app_origin_env
-            else:
-                origin = "http://127.0.0.1:8560"
-
-            redirect_url = f"{origin}/oauth_callback"
-
-        print("[OAUTH] CLIENT_ID:", client_id)
-        print("[OAUTH] REDIRECT_URL:", redirect_url)
+        print("[OAUTH] REDIRECT:", redirect_uri)
 
         self.provider = GoogleOAuthProvider(
             client_id=client_id,
             client_secret=client_secret,
-            redirect_url=redirect_url,
+            redirect_url=redirect_uri,
         )
 
         self.page.on_login = self._on_login
@@ -65,31 +54,31 @@ class GoogleAuthHandler:
             self._load_existing_auth()
 
     def _load_existing_auth(self):
-        existing_user = getattr(self.page.auth, "user", None)
-        existing_token = getattr(self.page.auth, "token", None)
-        if existing_user and existing_token:
-            expires_at = getattr(existing_token, "expires_at", None)
-            if expires_at and isinstance(expires_at, (int, float)) and time.time() >= float(expires_at):
+        user = getattr(self.page.auth, "user", None)
+        token = getattr(self.page.auth, "token", None)
+        if user and token:
+            exp = getattr(token, "expires_at", None)
+            if exp and time.time() >= float(exp):
                 self.logout()
                 return
-            self.user = existing_user
-            self.token = existing_token
+            self.user = user
+            self.token = token
 
-    def is_logged_in(self) -> bool:
-        return bool(self.user and self.token) or bool(getattr(self.page.auth, "token", None))
+    def is_logged_in(self):
+        return bool(self.user and self.token)
 
     def logout(self):
         try:
             self.page.logout()
-        except Exception:
+        except:
             pass
         self.user = None
         self.token = None
 
-    def login(self, force_select_account: bool = True):
+    def login(self):
         try:
             self.provider.authorization_endpoint_params = {"prompt": "consent select_account"}
-        except Exception:
+        except:
             pass
 
         self.page.login(
@@ -106,28 +95,16 @@ class GoogleAuthHandler:
     def _on_login(self, e: ft.LoginEvent):
         if e.error:
             if self.on_error:
-                try:
-                    self.on_error(e)
-                except Exception:
-                    pass
+                self.on_error(e)
             return
 
         self.user = getattr(self.page.auth, "user", None)
         self.token = getattr(self.page.auth, "token", None)
 
-        try:
-            self.page.client_storage.set("auth_in_progress", "0")
-            self.page.client_storage.set("auth_started_at", "")
-        except Exception:
-            pass
-
         self.page.session.set("auth_in_progress", False)
 
         if self.on_success:
-            try:
-                self.on_success(self)
-            except Exception:
-                pass
+            self.on_success(self)
         else:
             self.page.go("/sheets")
 
@@ -154,11 +131,8 @@ class GoogleAuthHandler:
                     "name": info.get("name"),
                 }
             except Exception as e:
-                print("[USER INFO] Error al decodificar id_token:", e)
-        else:
-            print("[USER INFO] No hay user ni id_token disponible")
-
+                print("decode error:", e)
         return {}
 
-    def get_token(self) -> str:
+    def get_token(self):
         return getattr(self.token, "access_token", "") if self.token else ""
