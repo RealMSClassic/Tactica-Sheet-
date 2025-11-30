@@ -4,6 +4,8 @@ print(">>> LOGIN_VIEW VERSION: CLEAN-PROD <<<")
 import os
 import time
 import flet as ft
+import back.api_auth
+print(">>> IMPORTADO DESDE:", back.api_auth.__file__)
 from back.api_auth import GoogleAuthHandler
 
 AUTH_WINDOW_SEC = 120
