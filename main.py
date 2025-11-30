@@ -17,6 +17,7 @@ def main(page: ft.Page):
         page.views.clear()
 
         if page.route in ("/", "", None):
+            print("Inicia")
             page.views.append(login_view(page))
 
         elif page.route == "/loading":
