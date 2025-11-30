@@ -80,7 +80,7 @@ def login_view(page: ft.Page) -> ft.View:
     def on_click_login(_: ft.ControlEvent):
         cs_set("auth_in_progress", "1")
         cs_set("auth_started_at", str(now_s()))
-
+        print("VENTANA_LOGIN_ACTUAL: código nuevo cargado correctamente")
         auth = GoogleAuthHandler(
             page,
             on_success=on_login_ok,
