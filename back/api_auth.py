@@ -135,4 +135,8 @@ class GoogleAuthHandler:
         return {}
 
     def get_token(self):
+<<<<<<< HEAD
         return getattr(self.token, "access_token", "") if self.token else ""
+=======
+        return getattr(self.token, "access_token", "") if self.token else ""
+>>>>>>> 19155492efc18635caefb644b7d75f4e826609e5
